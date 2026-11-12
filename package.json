@@ -1,0 +1,36 @@
+{
+  "name": "controle-acesso-radio",
+  "version": "1.0.0",
+  "description": "API REST e painel web para integração, consulta e auditoria de eventos de controle de acesso.",
+  "main": "server.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "importar:funcionarios": "node scripts/importar-funcionarios-intelbras.js"
+  },
+  "keywords": [
+    "api-rest",
+    "nodejs",
+    "express",
+    "mongodb",
+    "controle-de-acesso",
+    "integracao-iot",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "ejs": "^7.0.2",
+    "express": "^5.3.0",
+    "mongodb": "^7.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

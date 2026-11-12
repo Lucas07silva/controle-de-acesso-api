@@ -1,0 +1,443 @@
+openapi: 3.1.0
+info:
+  title: API de Controle e Gestão de Acessos
+  version: 1.0.0
+  description: >-
+    Contrato descritivo da API do projeto acadêmico de integração, consulta e
+    auditoria de eventos de controle de acesso. Operações administrativas de
+    biometria exigem HTTPS e sessão administrativa quando indicado.
+servers:
+  - url: http://localhost:3000
+    description: Listener HTTP para desenvolvimento e consultas locais
+  - url: https://localhost:3443
+    description: Listener HTTPS, quando configurado
+tags:
+  - name: Sistema
+  - name: Eventos
+  - name: Dashboard
+  - name: Funcionários
+  - name: Clima
+  - name: Biometria
+paths:
+  /api/status:
+    get:
+      tags: [Sistema]
+      summary: Consulta o estado básico da aplicação
+      responses:
+        '200':
+          description: Aplicação e conexão com o banco disponíveis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sucesso: { type: boolean }
+                  aplicacao: { type: string }
+                  servidor: { type: string }
+                  banco: { type: string }
+                  dataHora: { type: string, format: date-time }
+                required: [sucesso, aplicacao, servidor, banco, dataHora]
+  /api/eventos:
+    post:
+      tags: [Eventos]
+      summary: Recebe uma notificação do terminal
+      description: >-
+        Webhook do equipamento. Aceita multipart/mixed, multipart/form-data,
+        multipart/related e payload JSON. A gravação de fotografias exige
+        conexão HTTPS e IP de origem presente em INTELBRAS_WEBHOOK_IPS. A
+        elegibilidade da foto também depende das regras de negócio descritas
+        em docs/REGRAS-DE-NEGOCIO.md.
+      requestBody:
+        required: true
+        content:
+          multipart/mixed:
+            schema:
+              type: string
+              format: binary
+            x-description: Corpo multipart produzido pelo equipamento, com parte textual do evento e, quando habilitado, parte binária JPEG/PNG.
+          multipart/form-data:
+            schema:
+              type: string
+              format: binary
+          multipart/related:
+            schema:
+              type: string
+              format: binary
+          application/json:
+            schema:
+              type: object
+              description: Payload textual de evento aceito pelo adaptador.
+      responses:
+        '200':
+          description: Eventos processados
+          content:
+            text/plain:
+              schema: { type: string, example: OK }
+        '400':
+          description: Notificação inválida ou sem eventos reconhecidos
+        '403':
+          description: Origem não autorizada, quando a allowlist está configurada
+        '503':
+          description: Falha temporária de persistência
+    get:
+      tags: [Eventos]
+      summary: Consulta os eventos mais recentes
+      description: Nesta versão, a rota não exige sessão administrativa; restrinja a exposição à rede controlada.
+      parameters:
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Lista dos eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sucesso: { type: boolean }
+                  quantidade: { type: integer }
+                  eventos:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        '500':
+          description: Falha ao consultar eventos
+  /api/dashboard/resumo:
+    get:
+      tags: [Dashboard]
+      summary: Obtém o resumo diário de movimentações
+      parameters:
+        - name: data
+          in: query
+          required: false
+          description: Data no formato AAAA-MM-DD. Sem o parâmetro, utiliza a data atual no fuso configurado.
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Resumo diário
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { description: Data inválida }
+  /api/relatorios/mensal:
+    get:
+      tags: [Dashboard]
+      summary: Obtém o relatório mensal
+      parameters:
+        - name: mes
+          in: query
+          required: false
+          description: Mês no formato AAAA-MM.
+          schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+      responses:
+        '200':
+          description: Consolidação mensal
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { description: Mês inválido }
+  /api/relatorios/mensal/csv:
+    get:
+      tags: [Dashboard]
+      summary: Exporta o relatório mensal em CSV
+      parameters:
+        - name: mes
+          in: query
+          required: false
+          schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+      responses:
+        '200':
+          description: Arquivo CSV em UTF-8 com BOM e delimitador ponto e vírgula
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '400': { description: Mês inválido }
+  /relatorios/mensal/imprimir:
+    get:
+      tags: [Dashboard]
+      summary: Abre a página de impressão do relatório mensal
+      parameters:
+        - name: mes
+          in: query
+          required: false
+          schema: { type: string, pattern: '^\d{4}-\d{2}$' }
+      responses:
+        '200':
+          description: Página HTML para impressão ou exportação pelo navegador
+          content:
+            text/html:
+              schema: { type: string }
+        '400': { description: Mês inválido }
+  /api/funcionarios:
+    get:
+      tags: [Funcionários]
+      summary: Pesquisa cadastros de funcionários
+      description: Nesta versão, a rota não exige sessão administrativa.
+      parameters:
+        - name: busca
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Funcionários encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sucesso: { type: boolean }
+                  quantidade: { type: integer }
+                  funcionarios:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        '500': { description: Falha na consulta }
+  /api/funcionarios/{userId}/movimentacoes:
+    get:
+      tags: [Funcionários]
+      summary: Consulta histórico individual e indicadores
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: inicio
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: fim
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: pagina
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: porPagina
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: Histórico, resumo, frequências e dados de paginação
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { description: Período ou parâmetros inválidos }
+        '404': { description: Funcionário não encontrado }
+  /api/clima/temperatura:
+    get:
+      tags: [Clima]
+      summary: Consulta estimativa meteorológica histórica para um instante
+      parameters:
+        - name: dataHora
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: atualizar
+          in: query
+          required: false
+          description: Use 1 para forçar nova consulta sem aproveitar o cache.
+          schema: { type: string, enum: ['0', '1'], default: '0' }
+      responses:
+        '200':
+          description: Estimativa ou indicação de indisponibilidade
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '400': { description: Horário ausente ou inválido }
+        '503': { description: Falha ao consultar fonte externa }
+  /api/biometria/sessao:
+    get:
+      tags: [Biometria]
+      summary: Consulta o estado da sessão e da configuração administrativa
+      responses:
+        '200':
+          description: Estado do canal e da sessão
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sucesso: { type: boolean }
+                  canalSeguro: { type: boolean }
+                  httpsObrigatorio: { type: boolean }
+                  administradorConfigurado: { type: boolean }
+                  autenticado: { type: boolean }
+                  usuario: { type: [string, 'null'] }
+                  dispositivoConfigurado: { type: boolean }
+  /api/biometria/login:
+    post:
+      tags: [Biometria]
+      summary: Autentica o administrador
+      description: HTTPS obrigatório para acesso remoto. O sucesso define o cookie HttpOnly de sessão.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usuario: { type: string }
+                senha: { type: string, format: password }
+              required: [usuario, senha]
+      responses:
+        '200': { description: Autenticação concluída }
+        '401': { description: Credenciais incorretas }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+        '429': { description: Limite temporário de tentativas excedido }
+        '503': { description: Administrador ainda não configurado }
+  /api/biometria/logout:
+    post:
+      tags: [Biometria]
+      summary: Encerra a sessão administrativa
+      responses:
+        '200': { description: Cookie de sessão removido }
+        '403': { description: Origem não autorizada }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+  /api/biometria/dispositivo/teste:
+    get:
+      tags: [Biometria]
+      summary: Testa a comunicação HTTPS com o terminal
+      security:
+        - cookieAuth: []
+      responses:
+        '200': { description: Terminal respondeu ao teste de conexão }
+        '401': { description: Sessão administrativa necessária }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+        '502': { description: Falha de comunicação com o terminal }
+  /api/biometria/funcionarios/{userId}/face:
+    post:
+      tags: [Biometria]
+      summary: Envia ou atualiza a fotografia facial de funcionário existente
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, maxLength: 80 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operacao: { type: string, enum: [add, update] }
+                fotoDataUrl: { type: string, description: Data URL de imagem validada pelo serviço }
+                confirmacaoResponsavel: { type: boolean, const: true }
+              required: [fotoDataUrl, confirmacaoResponsavel]
+      responses:
+        '200': { description: Fotografia enviada ao terminal }
+        '400': { description: Dados inválidos ou confirmação ausente }
+        '401': { description: Sessão administrativa necessária }
+        '404': { description: Funcionário não encontrado }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+        '502': { description: Terminal não confirmou a operação }
+  /api/biometria/usuarios:
+    post:
+      tags: [Biometria]
+      summary: Cria usuário comum e cadastra fotografia facial
+      description: A operação não cria administradores do terminal e não envia comando de abertura do portão.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId: { type: string, pattern: '^\d{1,20}$' }
+                nome: { type: string, maxLength: 64 }
+                situacao: { type: string, enum: [congelado, normal], default: congelado }
+                validadeInicio: { type: string, format: date }
+                validadeFim: { type: string, format: date }
+                fotoDataUrl: { type: string }
+                confirmacaoResponsavel: { type: boolean, const: true }
+              required: [userId, nome, fotoDataUrl, confirmacaoResponsavel]
+      responses:
+        '201': { description: Usuário e fotografia confirmados pelo terminal }
+        '207': { description: Usuário criado, mas fotografia não foi confirmada }
+        '400': { description: Dados inválidos ou confirmação ausente }
+        '401': { description: Sessão administrativa necessária }
+        '409': { description: ID já utilizado }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+        '502': { description: Terminal indisponível ou operação não confirmada }
+        '503': { description: Falha de auditoria ou persistência local }
+  /api/biometria/ocorrencias:
+    get:
+      tags: [Biometria]
+      summary: Lista ocorrências faciais para revisão humana
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [pendente, analisada, todas], default: pendente }
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200': { description: Ocorrências encontradas }
+        '400': { description: Filtro inválido }
+        '401': { description: Sessão administrativa necessária }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+        '500': { description: Falha de consulta }
+  /api/biometria/ocorrencias/{id}/foto:
+    get:
+      tags: [Biometria]
+      summary: Obtém fotografia privada de uma ocorrência
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Imagem JPEG ou PNG; a consulta é auditada e não utiliza cache público
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+        '401': { description: Sessão administrativa necessária }
+        '404': { description: Fotografia inexistente ou expirada }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+  /api/biometria/ocorrencias/{id}/revisao:
+    patch:
+      tags: [Biometria]
+      summary: Atualiza a revisão humana de uma ocorrência
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [pendente, analisada] }
+                observacoes: { type: string, maxLength: 1000 }
+                funcionarioUserId: { type: [string, 'null'] }
+              required: [status]
+      responses:
+        '200': { description: Revisão registrada }
+        '400': { description: Dados de revisão inválidos }
+        '401': { description: Sessão administrativa necessária }
+        '426': { description: HTTPS obrigatório para acesso remoto }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: controle_acesso_admin

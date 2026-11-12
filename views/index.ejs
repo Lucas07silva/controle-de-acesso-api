@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Painel de movimentação e relatórios de acesso da rádio.">
+    <title><%= titulo %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/dashboard.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon" aria-hidden="true">CA</div>
+            <div class="brand-copy">
+                <strong>Controle de Acesso</strong>
+                <span>Rádio · Portaria</span>
+            </div>
+        </div>
+
+        <div class="topbar-right">
+            <span class="status-pill" id="statusSistema">
+                <span class="status-dot"></span>
+                Verificando servidor
+            </span>
+            <span class="topbar-date" id="dataAtual"></span>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="page-intro">
+            <div>
+                <p class="eyebrow">PAINEL ADMINISTRATIVO</p>
+                <h1>Movimentação da portaria</h1>
+                <p class="subtitle">Acompanhe os acessos registrados pelo terminal Intelbras.</p>
+            </div>
+            <button id="btnAtualizar" class="button-primary" type="button">
+                <span aria-hidden="true">↻</span> Atualizar dados
+            </button>
+        </section>
+
+        <nav class="tabs" aria-label="Seções do sistema">
+            <button class="tab-button active" type="button" data-tab="diario" aria-selected="true">
+                <span aria-hidden="true">▥</span> Movimentação diária
+            </button>
+            <button class="tab-button" type="button" data-tab="mensal" aria-selected="false">
+                <span aria-hidden="true">▤</span> Relatório mensal
+            </button>
+            <button class="tab-button" type="button" data-tab="funcionarios" aria-selected="false">
+                <span aria-hidden="true">♙</span> Funcionários
+            </button>
+            <button class="tab-button" type="button" data-tab="novo-usuario" aria-selected="false">
+                <span aria-hidden="true">＋</span> Novo usuário
+            </button>
+            <button class="tab-button" type="button" data-tab="biometria" aria-selected="false">
+                <span aria-hidden="true">◉</span> Biometria e ocorrências
+            </button>
+        </nav>
+
+        <section class="tab-panel active" id="painel-diario" data-panel="diario">
+            <div class="section-heading filter-heading">
+                <div>
+                    <p class="eyebrow">ACOMPANHAMENTO</p>
+                    <h2>Fluxo de acessos por horário</h2>
+                    <p class="section-caption">Entradas e saídas liberadas e tentativas negadas ao longo do dia.</p>
+                </div>
+                <label class="field date-filter">
+                    <span>Data da movimentação</span>
+                    <input id="filtroDataDia" type="date">
+                </label>
+            </div>
+
+            <div class="stats-grid" id="resumoDiario">
+                <article class="stat-card">
+                    <span class="stat-label">Movimentações</span>
+                    <strong class="stat-value" id="diaTotal">—</strong>
+                    <span class="stat-detail">Eventos de acesso recebidos</span>
+                </article>
+                <article class="stat-card accent-green">
+                    <span class="stat-label">Entradas liberadas</span>
+                    <strong class="stat-value" id="diaEntradas">—</strong>
+                    <span class="stat-detail">Tipo Entry · Status de sucesso</span>
+                </article>
+                <article class="stat-card accent-blue">
+                    <span class="stat-label">Saídas liberadas</span>
+                    <strong class="stat-value" id="diaSaidas">—</strong>
+                    <span class="stat-detail">Tipo Exit · Status de sucesso</span>
+                </article>
+                <article class="stat-card accent-red">
+                    <span class="stat-label">Tentativas negadas</span>
+                    <strong class="stat-value" id="diaNegados">—</strong>
+                    <span class="stat-detail">Abertura não autorizada pelo terminal</span>
+                </article>
+            </div>
+
+            <article class="panel chart-panel">
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">DISTRIBUIÇÃO NO DIA</span>
+                        <h3>Movimentações por hora</h3>
+                    </div>
+                    <span class="section-caption" id="statusDiario">Carregando dados...</span>
+                </div>
+                <div class="chart-legend">
+                    <span><i class="legend-dot green"></i> Entradas</span>
+                    <span><i class="legend-dot blue"></i> Saídas</span>
+                    <span><i class="legend-dot red"></i> Negadas</span>
+                </div>
+                <div class="chart-scroll" aria-label="Gráfico horizontal rolável de movimentações por hora">
+                    <div id="hourlyChart" class="hourly-chart" role="img" aria-label="Gráfico de movimentações por hora">
+                        <p class="empty-message">Carregando movimentações...</p>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel table-panel">
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">REGISTROS RECENTES</span>
+                        <h3>Últimas movimentações do dia</h3>
+                    </div>
+                    <span class="section-caption">Até 15 registros</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Horário</th>
+                                <th>Funcionário</th>
+                                <th>ID</th>
+                                <th>Movimentação</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaDiaria">
+                            <tr><td colspan="5" class="empty-cell">Carregando registros...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <section class="tab-panel" id="painel-mensal" data-panel="mensal" hidden>
+            <div class="section-heading filter-heading">
+                <div>
+                    <p class="eyebrow">FECHAMENTO E CONSULTA</p>
+                    <h2>Relatório mensal de acessos</h2>
+                    <p class="section-caption">Consolidação das entradas, saídas e tentativas negadas no período.</p>
+                </div>
+                <label class="field date-filter">
+                    <span>Mês de referência</span>
+                    <input id="filtroMes" type="month">
+                </label>
+            </div>
+
+            <div class="report-actions">
+                <p id="statusMensal" class="section-caption" aria-live="polite">Selecione um mês para consultar.</p>
+                <div class="action-group">
+                    <a id="btnExportarCSV" class="button-secondary" href="#" aria-label="Exportar relatório mensal para Excel em CSV">↓ Exportar para Excel (CSV)</a>
+                    <button id="btnImprimirPDF" class="button-primary" type="button">Imprimir / Salvar PDF</button>
+                </div>
+            </div>
+
+            <div class="stats-grid monthly-stats">
+                <article class="stat-card">
+                    <span class="stat-label">Total de movimentações</span>
+                    <strong class="stat-value" id="mesTotal">—</strong>
+                    <span class="stat-detail">Tentativas registradas</span>
+                </article>
+                <article class="stat-card accent-green">
+                    <span class="stat-label">Entradas liberadas</span>
+                    <strong class="stat-value" id="mesEntradas">—</strong>
+                    <span class="stat-detail">Acessos de entrada bem-sucedidos</span>
+                </article>
+                <article class="stat-card accent-blue">
+                    <span class="stat-label">Saídas liberadas</span>
+                    <strong class="stat-value" id="mesSaidas">—</strong>
+                    <span class="stat-detail">Acessos de saída bem-sucedidos</span>
+                </article>
+                <article class="stat-card accent-red">
+                    <span class="stat-label">Tentativas negadas</span>
+                    <strong class="stat-value" id="mesNegados">—</strong>
+                    <span class="stat-detail">Acessos não liberados</span>
+                </article>
+            </div>
+
+            <article class="panel table-panel">
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">CONSOLIDADO POR PESSOA</span>
+                        <h3>Movimentação por funcionário</h3>
+                    </div>
+                    <span class="section-caption" id="mesFuncionarios">— funcionários</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Funcionário</th>
+                                <th>ID</th>
+                                <th>Entradas</th>
+                                <th>Saídas</th>
+                                <th>Negadas</th>
+                                <th>Primeira movimentação</th>
+                                <th>Última movimentação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaMensalFuncionarios">
+                            <tr><td colspan="7" class="empty-cell">Carregando relatório...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="panel table-panel">
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">EVOLUÇÃO DIÁRIA</span>
+                        <h3>Resumo por dia</h3>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Movimentações</th>
+                                <th>Entradas</th>
+                                <th>Saídas</th>
+                                <th>Negadas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaMensalDias">
+                            <tr><td colspan="5" class="empty-cell">Carregando relatório...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <p class="report-note">O relatório considera eventos AccessControl. Entradas e saídas são contabilizadas somente quando o terminal informa sucesso. Tentativas negadas permanecem separadas.</p>
+        </section>
+
+        <section class="tab-panel" id="painel-funcionarios" data-panel="funcionarios" hidden>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">CADASTROS E HISTÓRICO</p>
+                    <h2>Funcionários cadastrados</h2>
+                    <p class="section-caption">Selecione uma pessoa para consultar suas movimentações individualmente.</p>
+                </div>
+            </div>
+
+            <div class="employees-layout">
+                <aside class="panel employees-sidebar">
+                    <label class="field search-field">
+                        <span>Buscar funcionário</span>
+                        <input id="buscaFuncionario" type="search" placeholder="Nome ou ID..." autocomplete="off">
+                    </label>
+                    <p id="statusFuncionarios" class="request-status">Carregando funcionários...</p>
+                    <div id="listaFuncionarios" class="employee-list">
+                        <p class="empty-message">Carregando cadastros...</p>
+                    </div>
+                </aside>
+
+                <div class="employee-content">
+                    <div id="funcionarioVazio" class="panel empty-profile">
+                        <div class="empty-profile-icon" aria-hidden="true">♙</div>
+                        <h3>Selecione um funcionário</h3>
+                        <p>Os dados cadastrais e o histórico de movimentações aparecerão aqui.</p>
+                    </div>
+
+                    <div id="detalheFuncionario" hidden>
+                        <article class="panel employee-profile">
+                            <div class="profile-heading">
+                                <div class="avatar-placeholder" id="avatarFuncionario">—</div>
+                                <div>
+                                    <span class="panel-tag">PERFIL DO FUNCIONÁRIO</span>
+                                    <h3 id="nomeFuncionario">—</h3>
+                                    <p class="section-caption" id="idFuncionario">ID —</p>
+                                </div>
+                            </div>
+                            <div class="profile-meta">
+                                <span id="statusCadastro">Cadastro —</span>
+                                <span id="dataCadastro">Cadastrado —</span>
+                                <span id="permissaoDispositivo">Permissão no terminal —</span>
+                                <span id="validadeFuncionario">Validade no terminal —</span>
+                                <span id="statusValidadeFuncionario">Situação da validade —</span>
+                                <span id="numeroSerieTerminal">Terminal —</span>
+                                <span id="origemCadastroFuncionario">Origem do cadastro —</span>
+                                <span id="situacaoTerminalFuncionario">Situação no terminal —</span>
+                                <span id="statusFaceFuncionario">Cadastro facial —</span>
+                                <span id="primeiraMovimentacaoFuncionario">Primeira movimentação —</span>
+                                <span id="ultimaMovimentacaoFuncionario">Última movimentação —</span>
+                            </div>
+                            <p class="profile-disclaimer">A situação do cadastro é a informação armazenada no sistema. A validade é a informação importada do terminal; esta tela não consulta o estado atual do usuário diretamente no equipamento.</p>
+                        </article>
+
+                        <article class="panel face-enrollment-panel">
+                            <div class="panel-heading-row">
+                                <div>
+                                    <span class="panel-tag">CADASTRO BIOMÉTRICO</span>
+                                    <h3>Fotografia facial no terminal</h3>
+                                    <p class="section-caption">Envia a imagem para o usuário já cadastrado na Intelbras. Não cria usuários nem altera permissões.</p>
+                                </div>
+                                <span class="biometria-lock-label">Somente administrador</span>
+                            </div>
+                            <p id="faceEnrollmentLoginMessage" class="request-status">Entre na área Biometria e ocorrências como administrador para habilitar esta função.</p>
+                            <div id="faceEnrollmentControls" hidden>
+                                <div class="face-enrollment-fields">
+                                    <label class="field">
+                                        <span>Fotografia autorizada (JPG/JPEG)</span>
+                                        <input id="arquivoFace" type="file" accept="image/jpeg" capture="user">
+                                    </label>
+                                    <label class="field">
+                                        <span>Operação no terminal</span>
+                                        <select id="operacaoFace">
+                                            <option value="add">Adicionar fotografia facial</option>
+                                            <option value="update">Atualizar fotografia facial</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <label class="biometria-confirmacao">
+                                    <input id="confirmacaoResponsavel" type="checkbox">
+                                    <span>Confirmo que a rádio validou a base legal aplicável, informou a pessoa e autorizou este cadastro biométrico.</span>
+                                </label>
+                                <button id="btnEnviarFace" class="button-primary" type="button">Enviar fotografia ao terminal</button>
+                            </div>
+                            <p id="statusFaceEnrollment" class="request-status" aria-live="polite"></p>
+                        </article>
+
+                        <div class="stats-grid employee-stats">
+                            <article class="stat-card">
+                                <span class="stat-label">Movimentações</span>
+                                <strong class="stat-value" id="funcTotal">—</strong>
+                                <span class="stat-detail">No período selecionado</span>
+                            </article>
+                            <article class="stat-card accent-green">
+                                <span class="stat-label">Entradas</span>
+                                <strong class="stat-value" id="funcEntradas">—</strong>
+                                <span class="stat-detail">Liberadas</span>
+                            </article>
+                            <article class="stat-card accent-blue">
+                                <span class="stat-label">Saídas</span>
+                                <strong class="stat-value" id="funcSaidas">—</strong>
+                                <span class="stat-detail">Liberadas</span>
+                            </article>
+                            <article class="stat-card accent-red">
+                                <span class="stat-label">Negadas</span>
+                                <strong class="stat-value" id="funcNegados">—</strong>
+                                <span class="stat-detail">Tentativas</span>
+                            </article>
+                        </div>
+
+                        <div class="employee-frequency-grid">
+                            <article class="panel frequency-panel">
+                                <div class="panel-heading-row">
+                                    <div>
+                                        <span class="panel-tag">DISTRIBUIÇÃO POR HORÁRIO</span>
+                                        <h3>Movimentações ao longo do dia</h3>
+                                    </div>
+                                </div>
+                                <p class="frequency-note">Entradas e saídas liberadas aparecem separadas das tentativas negadas.</p>
+                                <div class="chart-scroll" aria-label="Gráfico horizontal rolável de frequência por hora">
+                                    <div id="frequenciaHorario" class="hourly-chart employee-hourly-chart" role="img" aria-label="Frequência de movimentações por hora">
+                                        <p class="empty-message">Selecione um funcionário.</p>
+                                    </div>
+                                </div>
+                            </article>
+
+                            <article class="panel frequency-panel">
+                                <div class="panel-heading-row">
+                                    <div>
+                                        <span class="panel-tag">PADRÃO SEMANAL</span>
+                                        <h3>Frequência por dia da semana</h3>
+                                    </div>
+                                </div>
+                                <p class="frequency-note">Volume de eventos no período selecionado.</p>
+                                <div id="frequenciaSemana" class="weekday-frequency">
+                                    <p class="empty-message">Selecione um funcionário.</p>
+                                </div>
+                                <div class="heatmap-heading">
+                                    <strong>Mapa de calor · dia × horário</strong>
+                                    <span>Quantidade de eventos por dia da semana e hora.</span>
+                                </div>
+                                <div id="mapaDiaHora" class="day-hour-heatmap-wrap">
+                                    <p class="empty-message">Selecione um funcionário.</p>
+                                </div>
+                            </article>
+                        </div>
+
+                        <article class="panel table-panel">
+                            <div class="panel-heading-row">
+                                <div>
+                                    <span class="panel-tag">EVOLUÇÃO DIÁRIA</span>
+                                    <h3>Movimentações por data</h3>
+                                </div>
+                            </div>
+                            <div class="table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Total</th>
+                                            <th>Entradas</th>
+                                            <th>Saídas</th>
+                                            <th>Negadas</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaFrequenciaData">
+                                        <tr><td colspan="5" class="empty-cell">Selecione um funcionário.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+
+                        <article class="panel table-panel">
+                            <div class="panel-heading-row history-heading">
+                                <div>
+                                    <span class="panel-tag">HISTÓRICO INDIVIDUAL</span>
+                                    <h3>Detalhes da movimentação</h3>
+                                </div>
+                                <div class="history-filters">
+                                    <label class="field compact-field">
+                                        <span>De</span>
+                                        <input id="historicoInicio" type="date">
+                                    </label>
+                                    <label class="field compact-field">
+                                        <span>Até</span>
+                                        <input id="historicoFim" type="date">
+                                    </label>
+                                    <button id="btnFiltrarHistorico" class="button-secondary" type="button">Filtrar</button>
+                                </div>
+                            </div>
+                            <p id="statusHistorico" class="request-status"></p>
+                            <p class="weather-disclaimer">Condições e temperatura horárias estimadas para a localidade configurada no horário da entrada. Inclui sensação térmica, umidade, chuva e vento quando disponíveis; não é uma medição feita por equipamento instalado na portaria. Fonte: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>.</p>
+                            <div class="history-pagination">
+                                <span id="resumoPaginacaoHistorico">—</span>
+                                <div class="history-pagination-actions">
+                                    <button id="btnHistoricoAnterior" class="button-secondary" type="button" disabled>Anterior</button>
+                                    <button id="btnHistoricoProxima" class="button-secondary" type="button" disabled>Próxima</button>
+                                </div>
+                            </div>
+                            <div class="table-wrap history-table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Data e horário</th>
+                                            <th>Movimentação</th>
+                                            <th>Resultado</th>
+                                            <th>Método</th>
+                                            <th>Porta/canal</th>
+                                            <th>Condições meteorológicas na entrada</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaHistoricoFuncionario">
+                                        <tr><td colspan="6" class="empty-cell">Selecione um funcionário.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="history-pagination history-pagination-bottom">
+                                <span id="resumoPaginacaoHistoricoRodape">—</span>
+                                <div class="history-pagination-actions">
+                                    <button id="btnHistoricoAnteriorRodape" class="button-secondary" type="button" disabled>Anterior</button>
+                                    <button id="btnHistoricoProximaRodape" class="button-secondary" type="button" disabled>Próxima</button>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="tab-panel" id="painel-novo-usuario" data-panel="novo-usuario" hidden>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">CADASTRO NO TERMINAL</p>
+                    <h2>Novo usuário e fotografia facial</h2>
+                    <p class="section-caption">Cadastre uma pessoa no terminal Intelbras e envie sua fotografia facial em uma única operação administrativa.</p>
+                </div>
+            </div>
+
+            <article class="panel biometria-security-notice new-user-notice">
+                <strong>Antes de cadastrar</strong>
+                <p>Use esta função somente após confirmar a identidade da pessoa, informar como a biometria será utilizada e validar com o responsável da rádio a hipótese legal aplicável. O sistema cria uma conta de usuário comum; ele nunca cria administradores nem envia comandos para abrir o portão.</p>
+                <p>Por segurança, novos usuários começam <strong>bloqueados no terminal</strong>. A ativação deve ser escolhida expressamente por um administrador após validar as regras de acesso da pessoa.</p>
+            </article>
+
+            <article class="panel new-user-auth-notice" id="novoUsuarioRestricao" aria-live="polite">
+                <strong id="novoUsuarioRestricaoTitulo">Acesso administrativo necessário</strong>
+                <p id="novoUsuarioRestricaoMensagem" class="section-caption">Entre na área biométrica para habilitar o cadastro de usuários.</p>
+                <button id="btnIrParaBiometriaLogin" class="button-secondary" type="button">Acessar login administrativo</button>
+            </article>
+
+            <form id="novoUsuarioForm" class="panel new-user-form" hidden>
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">IDENTIFICAÇÃO</span>
+                        <h3>Dados do usuário</h3>
+                    </div>
+                    <span class="biometria-status-pill online">Usuário comum</span>
+                </div>
+
+                <div class="new-user-fields">
+                    <label class="field">
+                        <span>ID Intelbras (somente números)</span>
+                        <input id="novoUsuarioId" name="userId" type="text" inputmode="numeric" pattern="[0-9]{1,20}" maxlength="20" autocomplete="off" required placeholder="Ex.: 125">
+                    </label>
+                    <label class="field">
+                        <span>Nome completo</span>
+                        <input id="novoUsuarioNome" name="nome" type="text" maxlength="64" autocomplete="name" required placeholder="Nome e sobrenome">
+                    </label>
+                    <label class="field">
+                        <span>Situação inicial no terminal</span>
+                        <select id="novoUsuarioSituacao" name="situacao">
+                            <option value="congelado" selected>Bloqueado até liberação</option>
+                            <option value="normal">Normal — aplicar regras existentes do terminal</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Permissão no terminal</span>
+                        <input type="text" value="Usuário comum (não administrador)" readonly aria-readonly="true">
+                    </label>
+                    <label class="field">
+                        <span>Validade inicial (opcional)</span>
+                        <input id="novoUsuarioValidadeInicio" name="validadeInicio" type="date">
+                    </label>
+                    <label class="field">
+                        <span>Validade final (opcional)</span>
+                        <input id="novoUsuarioValidadeFim" name="validadeFim" type="date">
+                    </label>
+                </div>
+
+                <div class="new-user-status-note" id="novoUsuarioSituacaoNota">
+                    O padrão é criar o usuário bloqueado. A opção “Normal” ativa o cadastro, mas não cria regras individuais de portas ou horários; o terminal continuará aplicando as regras gerais já configuradas.
+                </div>
+
+                <div class="new-user-photo-section">
+                    <div class="panel-heading-row">
+                        <div>
+                            <span class="panel-tag">FOTOGRAFIA FACIAL</span>
+                            <h3>Capturar pela câmera ou enviar arquivo</h3>
+                            <p class="section-caption">A imagem é convertida no navegador para JPG antes do envio e não é armazenada como arquivo no MongoDB.</p>
+                        </div>
+                    </div>
+
+                    <div class="new-user-photo-layout">
+                        <div class="new-user-camera-panel">
+                            <div class="new-user-camera-preview" id="novoUsuarioPreviewArea">
+                                <video id="novoUsuarioVideo" playsinline autoplay muted hidden></video>
+                                <img id="novoUsuarioPreview" alt="Prévia da fotografia facial" hidden>
+                                <div id="novoUsuarioPlaceholder" class="new-user-photo-placeholder">
+                                    <span aria-hidden="true">◉</span>
+                                    <strong>Nenhuma fotografia selecionada</strong>
+                                    <small>Use a câmera ou escolha uma imagem do computador.</small>
+                                </div>
+                            </div>
+                            <canvas id="novoUsuarioCanvas" hidden></canvas>
+                            <div class="new-user-photo-actions">
+                                <button id="btnAbrirCameraNovoUsuario" class="button-secondary" type="button">Abrir webcam</button>
+                                <button id="btnCapturarCameraNovoUsuario" class="button-primary" type="button" disabled hidden>Capturar foto</button>
+                                <button id="btnPararCameraNovoUsuario" class="button-secondary" type="button" disabled hidden>Fechar câmera</button>
+                            </div>
+                        </div>
+
+                        <div class="new-user-upload-panel">
+                            <label class="field">
+                                <span>Fotografia do computador ou celular</span>
+                                <input id="novoUsuarioArquivo" type="file" accept="image/jpeg,image/png,image/webp" capture="user">
+                            </label>
+                            <button id="btnRemoverFotoNovoUsuario" class="button-secondary" type="button" disabled>Remover fotografia</button>
+                            <p id="statusFotoNovoUsuario" class="request-status" aria-live="polite">Formatos aceitos: JPG, PNG ou WebP. A imagem será convertida para JPG.</p>
+                            <div class="new-user-photo-guidance">
+                                <strong>Orientações para a fotografia</strong>
+                                <ul>
+                                    <li>Rosto de frente, centralizado e bem iluminado.</li>
+                                    <li>Evite óculos escuros, bonés ou outras obstruções.</li>
+                                    <li>Resolução final aceita pelo terminal: 150 × 300 até 600 × 1200 pixels.</li>
+                                    <li>O arquivo será redimensionado e comprimido para respeitar o limite do equipamento.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <label class="biometria-confirmacao new-user-confirmation">
+                    <input id="confirmacaoNovoUsuario" type="checkbox" required>
+                    <span>Confirmo que a identidade foi conferida, a pessoa foi informada sobre o tratamento biométrico e a rádio validou a hipótese legal aplicável antes do cadastro.</span>
+                </label>
+
+                <div class="new-user-submit-row">
+                    <p id="statusNovoUsuario" class="request-status" aria-live="polite">Preencha os dados e selecione uma fotografia.</p>
+                    <button id="btnCadastrarNovoUsuario" class="button-primary" type="submit" disabled>Cadastrar usuário e face no terminal</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="tab-panel" id="painel-biometria" data-panel="biometria" hidden>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">ÁREA RESTRITA</p>
+                    <h2>Biometria e tentativas não identificadas</h2>
+                    <p class="section-caption">Cadastro facial autorizado e revisão humana de fotografias de tentativas negadas.</p>
+                </div>
+            </div>
+
+            <article class="panel biometria-security-notice">
+                <strong>Proteção de dados biométricos</strong>
+                <p>As fotografias de tentativas faciais não identificadas ficam em armazenamento privado, acessível somente a administradores autenticados. O sistema não compara rostos nem identifica pessoas automaticamente. A associação a um funcionário, quando cabível, é sempre manual e deve ser confirmada por uma pessoa autorizada.</p>
+                <p>Prazo de retenção configurado no servidor: <strong id="prazoRetencaoBiometria">30 dias</strong>. Revise a base legal, a transparência aos titulares e a política de descarte com o responsável por proteção de dados da rádio.</p>
+            </article>
+
+            <article class="panel biometria-login-panel" id="biometriaLogin">
+                <div class="panel-heading-row">
+                    <div>
+                        <span class="panel-tag">AUTENTICAÇÃO</span>
+                        <h3>Acesso administrativo</h3>
+                    </div>
+                    <span id="statusCanalBiometria" class="biometria-status-pill">Verificando HTTPS</span>
+                </div>
+                <p id="mensagemCanalBiometria" class="section-caption">Esta área exige uma conexão HTTPS. No próprio computador do servidor, localhost também é permitido para testes.</p>
+                <form id="formBiometriaLogin" class="biometria-login-form">
+                    <label class="field">
+                        <span>Usuário administrativo</span>
+                        <input id="usuarioBiometria" name="usuario" autocomplete="username" required maxlength="80">
+                    </label>
+                    <label class="field">
+                        <span>PIN ou senha administrativa</span>
+                        <input id="senhaBiometria" name="senha" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN de 4 dígitos" required maxlength="200">
+                    </label>
+                    <button id="btnLoginBiometria" class="button-primary" type="submit">Entrar</button>
+                </form>
+                <p id="statusLoginBiometria" class="request-status" aria-live="polite"></p>
+            </article>
+
+            <div id="painelBiometriaAutenticado" hidden>
+                <article class="panel biometria-admin-toolbar">
+                    <div>
+                        <span class="panel-tag">SESSÃO ADMINISTRATIVA</span>
+                        <strong id="usuarioBiometriaLogado">Administrador</strong>
+                        <p class="section-caption">Ações administrativas são registradas na auditoria.</p>
+                    </div>
+                    <div class="biometria-toolbar-actions">
+                        <button id="btnTestarIntelbras" class="button-secondary" type="button">Testar terminal</button>
+                        <button id="btnSairBiometria" class="button-secondary" type="button">Sair</button>
+                    </div>
+                    <p id="statusTesteIntelbras" class="request-status" aria-live="polite"></p>
+                </article>
+
+                <article class="panel occurrences-panel">
+                    <div class="panel-heading-row occurrences-heading">
+                        <div>
+                            <span class="panel-tag">REVISÃO HUMANA</span>
+                            <h3>Tentativas faciais negadas sem identificação</h3>
+                            <p class="section-caption">Somente eventos de reconhecimento facial local sem UserID e com acesso negado, quando o terminal envia a fotografia.</p>
+                        </div>
+                        <label class="field compact-field">
+                            <span>Situação</span>
+                            <select id="filtroOcorrencias">
+                                <option value="pendente">Pendentes</option>
+                                <option value="analisada">Analisadas</option>
+                                <option value="todas">Todas</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p id="statusOcorrencias" class="request-status" aria-live="polite">Carregando ocorrências...</p>
+                    <div id="listaOcorrenciasFaciais" class="occurrence-grid">
+                        <p class="empty-message">Autentique-se para consultar as ocorrências.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <span>Controle de Acesso da Rádio · Node.js · Express · MongoDB</span>
+            <span>Horários apresentados no fuso configurado no servidor.</span>
+        </footer>
+    </main>
+</body>
+</html>
