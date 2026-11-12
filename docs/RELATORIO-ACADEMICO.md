@@ -4,7 +4,7 @@
 
 | Identificação | Preenchimento |
 |---|---|
-| Instituição | `UNEX]` |
+| Instituição | `UNEX` |
 | Curso | `Sistema de informação` |
 | Componente curricular | Desenvolvimento de APIs |
 | Docente | `Ramon Paixão` |
